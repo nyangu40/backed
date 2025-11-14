@@ -18,7 +18,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // =================== UPLOAD CONFIG ===================
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-app.use("/uploads", express.static(uploadDir));
+app.use("/uploads", express.static("uploads", { fallthrough: true }));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
