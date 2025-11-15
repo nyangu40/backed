@@ -23,7 +23,7 @@ app.use(express.static(path.join(__dirname)));
 // Serve uploads
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-app.use("/uploads", express.static(uploadDir));
+app.use("/uploads", express.static("uploads", { fallthrough: true }));
 
 // Serve index.html for root
 app.get("/", (req, res) => {
