@@ -15,12 +15,22 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// =================== UPLOAD CONFIG ===================
+// =================== STATIC FRONTEND SERVING (IMPORTANT FOR RAILWAY) ===================
+
+// Serve all frontend files directly from project folder
+app.use(express.static(path.join(__dirname)));
+
+// Serve uploads
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-app.use("/uploads", express.static("uploads", { fallthrough: true }));
+app.use("/uploads", express.static(uploadDir));
 
+// Serve index.html for root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
+// =================== UPLOAD CONFIG ===================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) =>
@@ -40,9 +50,6 @@ function verifyToken(req, res, next) {
     next();
   });
 }
-
-// =================== ROOT ===================
-app.get("/", (_, res) => res.send("Backend running..."));
 
 // =================== AUTH ===================
 app.post("/register", (req, res) => {
@@ -94,8 +101,6 @@ app.post("/login", (req, res) => {
 });
 
 // =================== BUSES ===================
-
-// Add bus
 app.post("/buses", verifyToken, upload.single("image"), (req, res) => {
   const { bus_name, organizer, origin, destination, total_seats, price, airtel_number } = req.body;
 
@@ -119,7 +124,7 @@ app.post("/buses", verifyToken, upload.single("image"), (req, res) => {
   );
 });
 
-// Public bus list
+// Public buses
 app.get("/buses", (_, res) => {
   db.query("SELECT * FROM buses ORDER BY id DESC", (err, rows) => {
     if (err) return res.status(500).json({ success: false });
@@ -171,7 +176,7 @@ app.get("/admin/bookings", verifyToken, (req, res) => {
   });
 });
 
-// =================== PAYMENT (unchanged) ===================
+// =================== PAYMENT ===================
 app.post("/initiatePayment", async (req, res) => {
   const { amount, phone, method, tx_ref } = req.body;
 
@@ -229,7 +234,7 @@ app.post("/initiatePayment", async (req, res) => {
   }
 });
 
-// Webhook
+// Callback
 app.post("/payment-callback", (req, res) => {
   const { ref_id, status } = req.body;
 
@@ -242,4 +247,4 @@ app.post("/payment-callback", (req, res) => {
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
