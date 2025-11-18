@@ -332,3 +332,12 @@ app.post("/payment-callback", (req, res) => {
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+app.get("/test-db", async (req, res) => {
+  try {
+    const [rows] = await db.execute("SELECT 1 + 1 AS result");
+    res.json({ success: true, db_result: rows[0].result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
