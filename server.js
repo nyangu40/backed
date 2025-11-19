@@ -56,7 +56,10 @@ app.post("/register", (req, res) => {
     return res.status(400).json({ success: false, message: "All fields required" });
 
   db.query("SELECT * FROM admins WHERE username = ?", [username], (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 
     if (rows.length) return res.json({ success: false, message: "Email already registered" });
 
@@ -66,7 +69,10 @@ app.post("/register", (req, res) => {
       "INSERT INTO admins (full_name, username, password) VALUES (?, ?, ?)",
       [full_name, username, hashed],
       (err2) => {
-        if (err2) return res.status(500).json({ success: false });
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ success: false, message: 'Internal server error' });
+        }
         res.json({ success: true, message: "Registration successful!" });
       }
     );
@@ -77,7 +83,10 @@ app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   db.query("SELECT * FROM admins WHERE username = ?", [username], (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 
     if (!rows.length) return res.json({ success: false, message: "Invalid credentials" });
 
@@ -119,7 +128,10 @@ app.post("/buses", verifyToken, upload.single("image"), (req, res) => {
     sql,
     [bus_name, organizer, origin, destination, total_seats, price, airtel_number, imagePath, admin_id],
     (err, result) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+      }
       res.json({ success: true, id: result.insertId });
     }
   );
@@ -128,7 +140,10 @@ app.post("/buses", verifyToken, upload.single("image"), (req, res) => {
 // Public buses
 app.get("/buses", (_, res) => {
   db.query("SELECT * FROM buses ORDER BY id DESC", (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
     res.json(rows);
   });
 });
@@ -136,7 +151,10 @@ app.get("/buses", (_, res) => {
 // Admin buses
 app.get("/admin/buses", verifyToken, (req, res) => {
   db.query("SELECT * FROM buses WHERE admin_id = ?", [req.user.admin_id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
     res.json(rows);
   });
 });
@@ -146,7 +164,10 @@ app.delete("/buses/:id", verifyToken, (req, res) => {
   const id = req.params.id;
 
   db.query("SELECT * FROM buses WHERE id = ? AND admin_id = ?", [id, req.user.admin_id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 
     if (!rows.length)
       return res.status(404).json({ success: false, message: "Not found or unauthorized" });
@@ -154,7 +175,10 @@ app.delete("/buses/:id", verifyToken, (req, res) => {
     const imageUrl = rows[0].image;
 
     db.query("DELETE FROM buses WHERE id = ?", [id], (err2) => {
-      if (err2) return res.status(500).json({ success: false });
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+      }
 
       if (imageUrl) {
         const fileName = imageUrl.split("/uploads/")[1];
@@ -181,7 +205,10 @@ app.post("/bookings", (req, res) => {
      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
     [bus_id, student_name, seat_number, payment_amount, payment_method, payer_number, tx_ref],
     (err) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+      }
       res.json({ success: true });
     }
   );
@@ -198,7 +225,10 @@ app.post("/testimonials", (req, res) => {
     "INSERT INTO testimonials (bus_id, name, message) VALUES (?, ?, ?)",
     [bus_id, name, message],
     (err, result) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+      }
       res.json({ success: true, id: result.insertId });
     }
   );
@@ -213,7 +243,10 @@ app.get("/testimonials", (req, res) => {
     "SELECT * FROM testimonials WHERE bus_id = ? ORDER BY id DESC",
     [bus_id],
     (err, rows) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+      }
       res.json(rows);
     }
   );
@@ -230,7 +263,10 @@ app.get("/admin/bookings", verifyToken, (req, res) => {
   `;
 
   db.query(sql, [req.user.admin_id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false });
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
     res.json(rows);
   });
 });
