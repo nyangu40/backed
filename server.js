@@ -295,14 +295,15 @@ app.post("/payment-callback", (req, res) => {
 });
 
 // =================== TEST DATABASE CONNECTION ===================
-app.get("/test-db", async (req, res) => {
-  try {
-    const [rows] = await db.execute("SELECT 1 + 1 AS result");
+app.get("/test-db", (req, res) => {
+  db.query("SELECT 1 + 1 AS result", (err, rows) => {
+    if (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
     res.json({ success: true, db_result: rows[0].result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  });
 });
+
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
