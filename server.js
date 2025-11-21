@@ -193,25 +193,86 @@ app.delete("/buses/:id", verifyToken, (req, res) => {
 
 // =================== BOOKINGS ===================
 app.post("/bookings", (req, res) => {
-  const { bus_id, student_name, seat_number, payment_amount, payment_method, payer_number, tx_ref } =
-    req.body;
+  const { bus_id, student_name, payment_amount, payment_method, payer_number, tx_ref } = req.body;
 
-  if (!bus_id || !student_name)
-    return res.status(400).json({ success: false, message: "Missing fields" });
+  if (!bus_id || !student_name) return res.status(400).json({ success: false, message: "Missing fields" });
 
-  db.query(
-    `INSERT INTO bookings 
-     (bus_id, student_name, seat_number, payment_amount, payment_method, payer_number, tx_ref, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
-    [bus_id, student_name, seat_number, payment_amount, payment_method, payer_number, tx_ref],
-    (err) => {
-      if (err) {
-        console.error(err);
+  // Assign seat server-side (first-available, FCFS) inside a transaction to avoid race conditions
+  db.getConnection((connErr, connection) => {
+    if (connErr) {
+      console.error(connErr);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+
+    connection.beginTransaction((tErr) => {
+      if (tErr) {
+        connection.release();
+        console.error(tErr);
         return res.status(500).json({ success: false, message: 'Internal server error' });
       }
-      res.json({ success: true });
-    }
-  );
+
+      // Lock the bus row to serialize seat assignment
+      connection.query('SELECT total_seats FROM buses WHERE id = ? FOR UPDATE', [bus_id], (bErr, bRows) => {
+        if (bErr || !bRows.length) {
+          connection.rollback(() => connection.release());
+          console.error(bErr);
+          return res.status(400).json({ success: false, message: 'Invalid bus id' });
+        }
+
+        const totalSeats = Number(bRows[0].total_seats) || 0;
+
+        // Get currently booked seat numbers for this bus
+        connection.query('SELECT seat_number FROM bookings WHERE bus_id = ? FOR UPDATE', [bus_id], (sErr, sRows) => {
+          if (sErr) {
+            connection.rollback(() => connection.release());
+            console.error(sErr);
+            return res.status(500).json({ success: false, message: 'Internal server error' });
+          }
+
+          const taken = new Set();
+          sRows.forEach(r => {
+            const n = Number(r.seat_number);
+            if (!isNaN(n)) taken.add(n);
+          });
+
+          // find smallest available seat in 1..totalSeats
+          let assigned = null;
+          for (let i = 1; i <= totalSeats; i++) {
+            if (!taken.has(i)) { assigned = i; break; }
+          }
+
+          if (assigned === null) {
+            connection.rollback(() => connection.release());
+            return res.status(400).json({ success: false, message: 'No seats available' });
+          }
+
+          // Insert booking with assigned seat
+          const sql = `INSERT INTO bookings 
+            (bus_id, student_name, seat_number, payment_amount, payment_method, payer_number, tx_ref, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`;
+
+          connection.query(sql, [bus_id, student_name, assigned, payment_amount, payment_method, payer_number, tx_ref], (iErr, result) => {
+            if (iErr) {
+              connection.rollback(() => connection.release());
+              console.error(iErr);
+              return res.status(500).json({ success: false, message: 'Internal server error' });
+            }
+
+            connection.commit((cErr) => {
+              if (cErr) {
+                connection.rollback(() => connection.release());
+                console.error(cErr);
+                return res.status(500).json({ success: false, message: 'Internal server error' });
+              }
+
+              connection.release();
+              return res.json({ success: true, seat_number: assigned, booking_id: result.insertId });
+            });
+          });
+        });
+      });
+    });
+  });
 });
 
 // =================== TESTIMONIALS ===================
